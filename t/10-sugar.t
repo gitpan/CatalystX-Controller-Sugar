@@ -2,13 +2,9 @@
 
 use strict;
 use warnings;
-use lib q(lib);
-use Test::More tests => 14;
-
-BEGIN {
-    use lib q(t/lib);
-    use_ok("Catalyst::Test", "CataTest");
-}
+use lib qw(lib t/lib);
+use Catalyst::Test 'CataTest';
+use Test::More tests => 16;
 
 is(
     request("/foo-bar-default")->content,
@@ -60,9 +56,9 @@ is(
     "user=doe => user=doe => [edit]",
     "/user/[name]/action/... named captures",
 );
-is(
+like(
     request("/sugar/ctrl")->content,
-    "CataTest::Controller::Sugar",
+    qr{^CataTest::Controller::Sugar},
     "controller() returns controller class",
 );
 is(
@@ -74,4 +70,19 @@ is(
     request("/http_method")->content,
     "HTTP GET",
     "multi method => get",
+);
+is(
+    request("/sugar/foo/action_a")->content,
+    "action_a",
+    "parent controller inherit root action",
+);
+is(
+    request("/sugar/foo/dafault_foo")->content,
+    "default foo",
+    "default action set for Foo",
+);
+is(
+    request("/sugar/foo/42/24/capture_end")->content,
+    "captured c1, capture foo endpoint",
+    "capture action set up for Foo",
 );

@@ -22,3 +22,4 @@ t/10-sugar.t
 t/lib/CataTest.pm
 t/lib/CataTest/Controller/Root.pm
 t/lib/CataTest/Controller/Sugar.pm
+t/lib/CataTest/Controller/Sugar/Foo.pm

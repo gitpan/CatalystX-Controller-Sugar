@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Extra sugar for Catalyst controller
 
 =head1 VERSION
 
-0.01
+0.03
 
 =head1 SYNOPSIS
 
@@ -30,7 +30,7 @@ CatalystX::Controller::Sugar - Extra sugar for Catalyst controller
  };
 
  # /person/*/edit/*
- chain '/person' => 'edit' => sub {
+ chain '/person:1' => 'edit' => sub {
    res->body( sprintf 'Person %s is unique: %s'
      captured('id'), stash('unique')
    );
@@ -57,17 +57,17 @@ use Moose::Exporter;
 use MooseX::MethodAttributes ();
 use Catalyst::Controller ();
 use Catalyst::Utils;
+use Data::Dumper ();
 
 Moose::Exporter->setup_import_methods(
     also  => [qw/ Moose MooseX::MethodAttributes /],
-    with_caller => [qw/ chain private /],
-    as_is => [qw/
-        c captured controller forward go req res session stash
-    /],
+    with_caller => [qw/ chain report private /],
+    as_is => [qw/ c captured controller forward go req res session stash /],
 );
 
-our $VERSION = '0.01';
+our $VERSION = '0.03';
 our $ROOT = 'root';
+our $DEFAULT = 'default';
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
 
 =head1 EXPORTED FUNCTIONS
@@ -122,39 +122,55 @@ for a certain HTTP method: (The HTTP method is in lowercase)
 sub chain {
     my $class = shift;
     my $code  = pop;
-    my($c, $name, $ns, $attrs);
+    my($c, $name, $ns, $attrs, $path, $action);
 
     $c     = Catalyst::Utils::class2appclass($class);
     $ns    = $class->action_namespace($c) || q();
     $attrs = _setup_chain_attrs($ns, @_);
 
-    if($attrs->{'PathPart'}[0] ne $ns) {
-        $name =  $attrs->{'PathPart'}[0];
-        $name =~ s,^$ns/?,,;
+    $path  =  $attrs->{'Chained'}[0];
+    $path  =~ s,$ROOT$,,;
+    $path .=  $attrs->{'PathPart'}[0];
+
+    if($path ne "/$ns") {
+        $name = (split "/", $attrs->{'PathPart'}[0])[-1];
     }
     elsif($c->dispatcher->get_action($ROOT, $ns)) {
-        $name = "default";
+        $name = $DEFAULT;
     }
     else {
         $name = $ROOT;
     }
 
-    $c->dispatcher->register($c,
-        $class->create_action(
-            name => $name,
-            code => _create_chain_code($class, $code),
-            reverse => $ns ? "$ns/$name" : $name,
-            namespace => $ns,
-            attributes => $attrs,
-        )
-    );
+    # add captures to name
+    if(@{ $attrs->{'capture_names'} }) {
+        $name ||= q();
+        $name  .= ":" .int @{ $attrs->{'capture_names'} };
+    }
+
+    # set default name
+    # is this correct?
+    elsif(!$name) {
+        $name = $DEFAULT;
+    }
+
+    $action = $class->create_action(
+                  name => $name,
+                  code => _create_chain_code($class, $code),
+                  reverse => $ns ? "$ns/$name" : $name,
+                  namespace => $ns,
+                  class => $class,
+                  attributes => $attrs,
+              );
+
+    $c->dispatcher->register($c, $action);
 }
 
 sub _setup_chain_attrs {
     my $ns    = shift;
     my $attrs = {};
 
-    if(@_) {
+    if(@_) { # chain ... => sub {};
         if(ref $_[-1] eq 'ARRAY') {
             $attrs->{'CaptureArgs'} = [int @{ $_[-1] }];
             $attrs->{'capture_names'} = pop @_;
@@ -181,9 +197,9 @@ sub _setup_chain_attrs {
             $attrs->{'Chained'} = [$ns ? "/$ns/$ROOT" : "/$ROOT"];
         }
     }
-    else { # chain(sub {});
+    else { # chain sub {};
         my($parent, $this) = $ns =~ m[ ^ (.*)/(\w+) $ ]x;
-        my $chained = $parent ? "/$parent"
+        my $chained = $parent ? "/$parent/$ROOT"
                     : $ns     ? "/$ROOT"
                     :           "/";
 
@@ -203,13 +219,12 @@ sub _create_chain_code {
 
     if(ref $code eq 'HASH') {
         return sub {
-            my $controller  = shift;
-            my $method      = lc $_[0]->req->method;
+            local $SELF     = shift;
             local $CONTEXT  = shift;
-            local $SELF     = $class;
             local $RES      = $CONTEXT->res;
             local $REQ      = $CONTEXT->req;
             local %CAPTURED = _setup_captured();
+            my $method      = lc $REQ->method;
 
             if($code->{$method}) {
                 return $code->{$method}->(@_);
@@ -224,9 +239,8 @@ sub _create_chain_code {
     }
     else {
         return sub {
-            my $controller  = shift;
+            local $SELF     = shift;
             local $CONTEXT  = shift;
-            local $SELF     = $class;
             local $RES      = $CONTEXT->res;
             local $REQ      = $CONTEXT->req;
             local %CAPTURED = _setup_captured();
@@ -269,6 +283,7 @@ sub private {
             code => _create_private_code($class, $code),
             reverse => $ns ? "$ns/$name" : $name,
             namespace => $ns,
+            class => $class,
             attributes => { Private => [] },
         )
     );
@@ -278,9 +293,8 @@ sub _create_private_code {
     my($class, $code) = @_;
 
     return sub {
-        my $controller = shift;
+        local $SELF    = shift;
         local $CONTEXT = shift;
-        local $SELF    = $class;
         local $RES     = $CONTEXT->res;
         local $REQ     = $CONTEXT->req;
 
@@ -397,7 +411,7 @@ sub session {
     }
     elsif(@_ % 2 == 0) {
         while(@_) {
-            my($key, $value) = splice @_, 2;
+            my($key, $value) = splice @_, 0, 2;
             $c->session->{$key} = $value;
         }
     }
@@ -414,6 +428,40 @@ sub _get_context_object {
     return $DB::args[1];
 }
 
+=head2 report
+
+ report($level, $format, @args);
+
+Same as:
+
+ $c->log->$level(sprintf $format, @args);
+
+But undef values from C<@args> are turned into "__UNDEF__", and objects
+and/or datastructructures are flatten, using L<Data::Dumper>.
+
+=cut
+
+sub report {
+    my $class = shift;
+    my $level = shift;
+    my $format = shift;
+    my $c = $CONTEXT || _get_context_object();
+
+    return unless($c->log->${ \"is_$level" });
+    return $c->log->$level(sprintf $format, _flatten(@_));
+}
+
+sub _flatten {
+    local $Data::Dumper::Indent = 0;
+    local $Data::Dumper::Terse = 0;
+
+    map {
+          ref $_     ? Data::Dumper::Dumper($_)
+        : defined $_ ? $_
+        :              '__UNDEF__'
+    } @_;
+}
+
 =head2 init_meta
 
 See L<Moose::Exporter>.
@@ -427,7 +475,7 @@ sub init_meta {
 
     Moose->init_meta(%p);
 
-    $for->meta->superclasses('Catalyst::Controller');
+    $for->meta->superclasses(qw/Catalyst::Controller/);
 }
 
 =head1 BUGS
