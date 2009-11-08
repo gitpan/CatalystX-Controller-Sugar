@@ -2,7 +2,7 @@ NAME
     CatalystX::Controller::Sugar - Extra sugar for Catalyst controller
 
 VERSION
-    0.03
+    0.04
 
 SYNOPSIS
      use CatalystX::Controller::Sugar;
@@ -72,7 +72,7 @@ EXPORTED FUNCTIONS
 
      8. Special case: See below
 
-    @CaptureArgs is a list of names of the captured argumenst, which can be
+    @CaptureArgs is a list of names of the captured arguments, which can be
     retrieved using captured().
 
     $Int is a number of Args to capture at the endpoint of a chain. These
@@ -157,6 +157,7 @@ EXPORTED FUNCTIONS
     But undef values from @args are turned into "__UNDEF__", and objects
     and/or datastructructures are flatten, using Data::Dumper.
 
+  METHODS
   init_meta
     See Moose::Exporter.
 

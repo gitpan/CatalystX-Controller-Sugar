@@ -2,11 +2,18 @@ package CatalystX::Controller::Sugar;
 
 =head1 NAME
 
-CatalystX::Controller::Sugar - Extra sugar for Catalyst controller
+CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.03
+0.04
+
+=head1 DESCRIPTION
+
+This module is written to simplify the way controllers are written. I
+personally think that shifting off C<$c> and C<$self> in every action is
+tidious. I also wanted a simpler API to created chained actions, since I
+rarely use any other actions - except of L</private>.
 
 =head1 SYNOPSIS
 
@@ -14,29 +21,30 @@ CatalystX::Controller::Sugar - Extra sugar for Catalyst controller
 
  __PACKAGE__->config->{'namespace'} = q();
 
+ # Private action
  private foo => sub {
    res->body('Hey!');
  };
 
- # /
+ # Chain /
  chain sub {
     # root chain
  };
 
- # /person/*
+ # Chain /person/[id]/
  chain '/' => 'person' => ['id'], sub {
    stash unique => rand;
    res->print( captured('id') );
  };
 
- # /person/*/edit/*
+ # Endpoint /person/*/edit/*
  chain '/person:1' => 'edit' => sub {
    res->body( sprintf 'Person %s is unique: %s'
      captured('id'), stash('unique')
    );
  };
 
- # /multi
+ # Endpoint /multi
  chain '/multi' => {
    post => sub { ... },
    get => sub { ... },
@@ -54,18 +62,16 @@ and C<$self> is available by calling L<controller()>.
 
 use Moose;
 use Moose::Exporter;
-use MooseX::MethodAttributes ();
 use Catalyst::Controller ();
 use Catalyst::Utils;
 use Data::Dumper ();
 
 Moose::Exporter->setup_import_methods(
-    also  => [qw/ Moose MooseX::MethodAttributes /],
-    with_caller => [qw/ chain report private /],
-    as_is => [qw/ c captured controller forward go req res session stash /],
+    with_caller => [qw/ chain private /],
+    as_is => [qw/ c captured controller forward go req report res session stash /],
 );
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our $ROOT = 'root';
 our $DEFAULT = 'default';
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
@@ -100,7 +106,7 @@ Same as:
 
  8. Special case: See below
 
-C<@CaptureArgs> is a list of names of the captured argumenst, which
+C<@CaptureArgs> is a list of names of the captured arguments, which
 can be retrieved using L<captured()>.
 
 C<$Int> is a number of Args to capture at the endpoint of a chain. These
@@ -183,7 +189,8 @@ sub _setup_chain_attrs {
             $attrs->{'PathPart'} = [pop @_];
         }
         else {
-            confess "Invalid arguments to chain()";
+            my $args = join ", ", @_;
+            confess "Invalid arguments: chain($args)";
         }
 
         if(defined $_[-1]) {
@@ -233,7 +240,7 @@ sub _create_chain_code {
                 return $code->{'default'}->(@_);
             }
             else {
-                confess "chain(..., { '$method' => undef })";
+                confess "Invalid arguments: chain(.., { '$method' => undef })";
             }
         };
     }
@@ -368,10 +375,12 @@ sub captured {
 
 =head2 stash
 
- $hash_ref = stash $key => $value, ...;
  $value = stash $key;
+ $hash_ref = stash $key => $value, ...;
+ $hash_ref = stash;
 
-Set/get data from the stash.
+Set/get data from the stash. The C<$hash_ref> is a reference to what the
+stash is holding.
 
 =cut
 
@@ -387,19 +396,21 @@ sub stash {
             $c->stash->{$key} = $value;
         }
     }
-    else {
-        confess "stash(@_) is invalid";
-    }
 
     return $c->stash;
 }
 
 =head2 session
 
- $hash_ref == session $key => $value;
  $value = session $key;
+ $hash_ref == session $key => $value;
+ $hash_ref == session;
 
-Set/get data from the session.
+Set/get data from the session. The C<$hash_ref> is a reference to what the
+session is holding.
+
+This function will only work if a session module/plugin is loaded into
+L<Catalyst>.
 
 =cut
 
@@ -416,7 +427,8 @@ sub session {
         }
     }
     else {
-        confess "session(@_) is invalid";
+        my $args = join ", ", @_;
+        confess "Invalid arguments: session($args)";
     }
 
     return $c->session;
@@ -430,9 +442,9 @@ sub _get_context_object {
 
 =head2 report
 
- report($level, $format, @args);
+ report $level, $format, @args;
 
-Same as:
+Almost the same as:
 
  $c->log->$level(sprintf $format, @args);
 
@@ -442,13 +454,18 @@ and/or datastructructures are flatten, using L<Data::Dumper>.
 =cut
 
 sub report {
-    my $class = shift;
     my $level = shift;
     my $format = shift;
     my $c = $CONTEXT || _get_context_object();
+    my $log = $c->log;
 
-    return unless($c->log->${ \"is_$level" });
-    return $c->log->$level(sprintf $format, _flatten(@_));
+    if(my $check = $log->can("is_$level")) {
+        if(!$log->$check) {
+            return;
+        }
+    }
+    
+    return $log->$level(sprintf $format, _flatten(@_));
 }
 
 sub _flatten {
@@ -461,6 +478,8 @@ sub _flatten {
         :              '__UNDEF__'
     } @_;
 }
+
+=head2 METHODS
 
 =head2 init_meta
 
