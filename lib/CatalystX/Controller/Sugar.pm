@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 DESCRIPTION
 
@@ -67,11 +67,11 @@ use Catalyst::Utils;
 use Data::Dumper ();
 
 Moose::Exporter->setup_import_methods(
-    with_caller => [qw/ chain private /],
+    with_meta => [qw/ chain private /],
     as_is => [qw/ c captured controller forward go req report res session stash /],
 );
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our $ROOT = 'root';
 our $DEFAULT = 'default';
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
@@ -126,8 +126,8 @@ for a certain HTTP method: (The HTTP method is in lowercase)
 =cut
 
 sub chain {
-    my $class = shift;
-    my $code  = pop;
+    my $class = shift->name;
+    my $code = pop;
     my($c, $name, $ns, $attrs, $path, $action);
 
     $c     = Catalyst::Utils::class2appclass($class);
@@ -273,12 +273,13 @@ sub _setup_captured {
 
 Same as:
 
- sub $name :Private {};
+ sub $name :Private {}
 
 =cut
 
 sub private {
-    my($class, $name, $code) = @_;
+    my($meta, $name, $code) = @_;
+    my $class = $meta->name;
     my($c, $ns);
  
     $c  = Catalyst::Utils::class2appclass($class);
@@ -311,13 +312,15 @@ sub _create_private_code {
 
 =head2 forward
 
- @Any = forward $action, @arguments;
+ @Any = forward $action;
+ @Any = forward $action, \@arguments;
 
 See L<Catalyst::forward()>.
 
 =head2 go
 
- go $action, @arguments;
+ go $action;
+ go $action, \@arguments;
 
 See L<Catalyst::go()>.
 
@@ -330,25 +333,27 @@ sub go { $CONTEXT->go(@_) }
 
  $context_obj = c;
 
-Returns the context object for this request.
+Returns the context object for this request, an instance of L<Catalyst>.
 
 =head2 controller
 
  $controller_obj = controller;
 
-Returns the controller class.
+Returns the current controller object.
 
 =head2 req
 
  $request_obj = req;
 
-Returns the request object for this request.
+Returns the request object for this request, an instance of
+L<Catalyst::Request>.
 
 =head2 res
 
  $response_obj = res;
 
-Returns the response object for this request.
+Returns the response object for this request, an instance of
+L<Catalyst::Response>.
 
 =cut
 
@@ -381,6 +386,10 @@ sub captured {
 
 Set/get data from the stash. The C<$hash_ref> is a reference to what the
 stash is holding.
+
+This will be the same as:
+
+ $c->stash->{$key} = $value;
 
 =cut
 
