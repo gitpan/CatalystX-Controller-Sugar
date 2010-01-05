@@ -21,6 +21,7 @@ no_index:
 requires:
   Catalyst: 5.8
   Data::Dumper: 2
+  namespace::autoclean: 0.09
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.05
+version: 0.06

@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.05
+0.06
 
 =head1 DESCRIPTION
 
@@ -17,40 +17,46 @@ rarely use any other actions - except of L</private>.
 
 =head1 SYNOPSIS
 
- use CatalystX::Controller::Sugar;
+  package MyApp::Controller::Root;
+  use CatalystX::Controller::Sugar;
+ 
+  __PACKAGE__->config->{'namespace'} = q();
+ 
+  # Private action
+  private authenticate => sub {
+    c->user_exists and return 1;
+  };
+ 
+  # Chain /
+  chain sub {
+    report debug => 'Someone tries to access %s', c->action;
+  };
 
- __PACKAGE__->config->{'namespace'} = q();
+  # Endpioint /*
+  chain '' => sub {
+    res->body('not found');
+  };
 
- # Private action
- private foo => sub {
-   res->body('Hey!');
- };
-
- # Chain /
- chain sub {
-    # root chain
- };
-
- # Chain /person/[id]/
- chain '/' => 'person' => ['id'], sub {
-   stash unique => rand;
-   res->print( captured('id') );
- };
-
- # Endpoint /person/*/edit/*
- chain '/person:1' => 'edit' => sub {
-   res->body( sprintf 'Person %s is unique: %s'
-     captured('id'), stash('unique')
-   );
- };
-
- # Endpoint /multi
- chain '/multi' => {
-   post => sub { ... },
-   get => sub { ... },
-   delete => sub { ... },
-   default => sub { ... },
- };
+  # Endpoint /login
+  chain login => {
+    get => sub {}, # show template
+    post => sub {
+      forward 'authenticate' and go '';
+    },
+  };
+ 
+  # Chain /user/[id]/*
+  chain user => ['id'], sub {
+    stash user => c->model('DB::User')->find($_[0]);
+  };
+ 
+  # Endpoint /user/[id]/view/*
+  chain 'user:1' => view => sub {
+    res->body(
+      sprintf 'Person is called: %s', stash->{'user'}->name
+    );
+  };
+ 
 
 =head1 NOTE
 
@@ -62,6 +68,7 @@ and C<$self> is available by calling L<controller()>.
 
 use Moose;
 use Moose::Exporter;
+use namespace::autoclean ();
 use Catalyst::Controller ();
 use Catalyst::Utils;
 use Data::Dumper ();
@@ -69,11 +76,12 @@ use Data::Dumper ();
 Moose::Exporter->setup_import_methods(
     with_meta => [qw/ chain private /],
     as_is => [qw/ c captured controller forward go req report res session stash /],
+    also => 'Moose',
 );
 
-our $VERSION = '0.05';
-our $ROOT = 'root';
-our $DEFAULT = 'default';
+our $VERSION = '0.06';
+our $ROOT = 'root'; # will be deprecated
+our $DEFAULT = 'default'; # will be deprecated
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
 
 =head1 EXPORTED FUNCTIONS
@@ -497,13 +505,16 @@ See L<Moose::Exporter>.
 =cut
 
 sub init_meta {
-    my $c   = shift;
-    my %p   = @_;
-    my $for = $p{'for_class'};
+    my $c = shift;
+    my %options = @_;
 
-    Moose->init_meta(%p);
+    Moose->init_meta(%options);
 
-    $for->meta->superclasses(qw/Catalyst::Controller/);
+    $options{'for_class'}->meta->superclasses(qw/Catalyst::Controller/);
+
+    namespace::autoclean->import(-cleanee => $options{'for_class'});
+
+    return $options{'for_class'}->meta;
 }
 
 =head1 BUGS

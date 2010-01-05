@@ -12,6 +12,7 @@ inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/CatalystX/Controller/Sugar.pm
 lib/CatalystX/Controller/Sugar/Plugin.pm
+lib/CatalystX/Controller/Sugar/SynopsisWithoutSugar.pod
 Makefile.PL
 MANIFEST			This list of files
 META.yml
