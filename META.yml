@@ -3,12 +3,14 @@ abstract: 'Sugar for Catalyst controller'
 author:
   - 'Jan Henning Thorsen, all rights reserved.'
 build_requires:
+  Data::Dumper: 2.124
   ExtUtils::MakeMaker: 6.42
-  Test::More: 0.9
+  Moose: 0.94
+  Test::More: 0.92
 configure_requires:
   ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 0.92'
+generated_by: 'Module::Install version 0.95'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -19,12 +21,12 @@ no_index:
     - inc
     - t
 requires:
-  Catalyst: 5.80021
-  Data::Dumper: 2
+  Catalyst::Runtime: 5.80021
+  Moose: 0.94
   namespace::autoclean: 0.09
 resources:
   bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=CatalystX-Controller-Sugar
-  homepage: http://jhthorsen.github.com/catalystx-controller-sugar
+  homepage: http://search.cpan.org/dist/CatalystX-Controller-Sugar
   license: http://dev.perl.org/licenses/
-  repository: http://github.com/jhthorsen/catalystx-controller-sugar
-version: 0.0701
+  repository: git://github.com/jhthorsen/catalystx-controller-sugar.git
+version: 0.0702

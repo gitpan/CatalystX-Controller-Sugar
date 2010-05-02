@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.0701
+0.0702
 
 =head1 DESCRIPTION
 
@@ -130,7 +130,7 @@ Moose::Exporter->setup_import_methods(
     also => 'Moose',
 );
 
-our $VERSION = '0.0701';
+our $VERSION = '0.0702';
 our $ROOT = 'root'; # will be deprecated
 our $DEFAULT = 'default'; # will be deprecated
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
@@ -232,7 +232,7 @@ sub chain {
 }
 
 sub _setup_chain_attrs {
-    my $ns    = shift;
+    my $ns = shift;
     my $attrs = {};
 
     if(@_) { # chain ... => sub {};
@@ -274,7 +274,7 @@ sub _setup_chain_attrs {
         $attrs->{'CaptureArgs'} = [0];
     }
 
-    $attrs->{'Args'} = [] unless($attrs->{'CaptureArgs'});
+    $attrs->{'Args'} ||= [] unless($attrs->{'CaptureArgs'});
     $attrs->{'capture_names'} ||= [];
 
     return $attrs;
