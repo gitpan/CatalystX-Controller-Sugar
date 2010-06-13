@@ -98,7 +98,7 @@ sub inject {
     my $is_plugin;
     
     if(Class::MOP::is_class_loaded($target)) {
-        if($target->meta->get_package_symbol($SYMBOL)) {
+        if($target->meta->has_package_symbol($SYMBOL)) {
             $is_plugin = 1;
         }
     }
@@ -115,7 +115,7 @@ sub _inject_to_plugin {
     my $plugin_list = $_[0]->get_package_symbol($SYMBOL);
     my $target_list = $_[1]->meta->get_package_symbol($SYMBOL);
 
-    _inject_attributes(@_);
+    _inject_attributes($_[0], $_[1]->meta);
 
     push @$target_list, @$plugin_list;
 

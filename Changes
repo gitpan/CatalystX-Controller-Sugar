@@ -1,5 +1,10 @@
 Revision history for CatalystX-Controller-Sugar
 
+0.0703   Sun Jun 13 18:40:40 CEST 2010
+       - fix cannot call get_attribute() on a package
+       - fix meta->get_package_symbol() seems to create the symbol (!?)
+       - Applied doc patch from krunen
+
 0.0702   Sun May  2 07:13:41 CEST 2010
        - fix chain foo => $int => sub{}: Args is now set to the correct
          value.

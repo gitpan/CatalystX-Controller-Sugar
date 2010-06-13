@@ -11,7 +11,7 @@ action_ok('/', "CataTest set up");
 content_like('/plugin_endpoint', qr{default page}, 'plugin endpoint does not exist');
 content_like('/plugin_private_data', qr{default page}, 'plugin private data does not exist');
 
-# prepared inject
+# already inject to ::C::Plugin
 content_like(
     '/plugin/plugin_endpoint',
     qr{^plugin endpoint body},
