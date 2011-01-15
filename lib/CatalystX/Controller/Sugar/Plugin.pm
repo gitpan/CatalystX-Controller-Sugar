@@ -42,7 +42,7 @@ our $SILENT = 0;
 our $SYMBOL = '@ACTIONS';
 
 Moose::Exporter->setup_import_methods(
-    with_meta => [qw/ chain private /],
+    with_meta => [qw/ has chain private /],
     as_is => [qw/ inject /],
     also => 'Moose',
 );
@@ -74,6 +74,35 @@ sub private {
     my $action_list = $meta->get_package_symbol($SYMBOL);
     push @$action_list, [private => @_];
 }
+
+=head2 has
+
+Does the same as L<Moose/has>, but sets C<lazy> to true and C<is> to "ro"
+by default.
+
+=cut
+
+{ no warnings 'redefine'; # Will redefine Moose::has()
+sub has {
+    my $meta = shift;
+    my $name = shift;
+
+    Moose->throw_error('Usage: has \'name\' => ( key => value, ... )')
+        if @_ % 2 == 1;
+
+    my %options = ( definition_context => Moose::Util::_caller_info(), @_ );
+    my $attrs = ( ref($name) eq 'ARRAY' ) ? $name : [ ($name) ];
+
+    if(!exists $options{'is'}) {
+        $options{'is'} = 'ro';
+    }
+    if(!exists $options{'lazy'} and (exists $options{'default'} or exists $options{'builder'})) {
+        $options{'lazy'} = 1;
+    }
+
+    $meta->add_attribute( $_, %options ) for @$attrs;
+}
+} # end no warnings ...
 
 =head2 METHODS
 
@@ -209,13 +238,12 @@ sub init_meta {
 =head1 EXTENDED SYNOPSIS
 
  package My::Plugin;
- use Moose; # IMPORT "has"
  use CatalystX::Controller::Sugar::Plugin;
 
  has foo => (
-    is => 'rw',
+    is => 'ro', <-- Default by CatalystX::Controller::Sugar::Plugin
     isa => 'Str',
-    lazy => 1, # <-- IMPORTANT
+    lazy => 1, # <-- Default by CatalystX::Controller::Sugar::Plugin
     default => 'foo value'
  );
 

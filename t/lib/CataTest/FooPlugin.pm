@@ -3,9 +3,7 @@ package CataTest::FooPlugin;
 use CatalystX::Controller::Sugar::Plugin;
 
 has body_text => (
-    is => 'ro',
     isa => 'Str',
-    lazy => 1,
     default => 'plugin endpoint body',
 );
 

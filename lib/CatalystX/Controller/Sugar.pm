@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.0703
+0.08
 
 =head1 DESCRIPTION
 
@@ -130,7 +130,7 @@ Moose::Exporter->setup_import_methods(
     also => 'Moose',
 );
 
-our $VERSION = '0.0703';
+our $VERSION = eval '0.08';
 our $ROOT = 'root'; # will be deprecated
 our $DEFAULT = 'default'; # will be deprecated
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);

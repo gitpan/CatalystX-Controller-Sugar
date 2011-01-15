@@ -1,5 +1,10 @@
 Revision history for CatalystX-Controller-Sugar
 
+0.08     Sat Jan 15 11:35:59 CET 2011
+       - CatalystX::Controller::Sugar::Plugin will export a custom
+         has() which will set "is=>ro" and "lazy=>1", if not specified
+         from user input
+
 0.0703   Sun Jun 13 18:40:40 CEST 2010
        - fix cannot call get_attribute() on a package
        - fix meta->get_package_symbol() seems to create the symbol (!?)
