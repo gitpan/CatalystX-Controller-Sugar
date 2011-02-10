@@ -25,28 +25,38 @@ chain sub {
     stash root_is_set => 'yes';
 };
 
-# 2. endpoint: /[*]
+# 2. endpoint: /*
 chain "" => sub {
     res->body( @_ ? "default page (@_)" : "index page" );
 };
 
-# 2. endpoint: /test_private/[*]
+# 2. endpoint: /*/*/*/*/*$
+chain "" => 5 => sub {
+    res->body( c->action->name );
+};
+
+# 2. endpoint: /*/*/*/*/*/*$
+chain "" => 6 => { name => 'nr6' }, sub {
+    res->body("custom '" . c->action->name ."' name");
+};
+
+# 2. endpoint: /test_private/*
 chain "test_private" => sub {
     res->body( forward "/rp" );
 };
 
-# 2. endpoint: /test_body/[*]
+# 2. endpoint: /test_body/*
 chain test_root => sub {
     res->body( "exists=" .(stash('root_is_set') || 'no') );
 };
 
-# 2. endpoint: /get_stash/[*]
+# 2. endpoint: /get_stash/*
 chain get_stash => sub {
     stash foo => 123;
     res->body( stash 'foo' );
 };
 
-# 2. endpoint: /dump_stash/[*]
+# 2. endpoint: /dump_stash/*
 chain dump_stash => sub {
     stash foo => 42;
     stash bar => [1,2,3];
@@ -54,13 +64,13 @@ chain dump_stash => sub {
     res->body( Dumper c->stash );
 };
 
-# 2. endpoint: /http_method/[*]
+# 2. endpoint: /http_method/*
 chain "http_method" => {
     post => sub { res->print("HTTP POST") },
     get  => sub { res->print("HTTP GET") },
 };
 
-# 5. /out/of/ns/[*]
+# 5. /out/of/ns/*
 chain "/" => "out/of/ns" => sub {
     res->print("outside namespace");
 };

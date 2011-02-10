@@ -1,10 +1,10 @@
-#!perl
-
 use strict;
 use warnings;
 use lib qw(lib t/lib);
 use Catalyst::Test 'CataTest';
-use Test::More tests => 18;
+use Test::More;
+
+plan tests => 20;
 
 is(
     request("/foo-bar-default")->content,
@@ -65,6 +65,16 @@ is(
     request("/sugar/ctrl/foo")->content,
     "default page (sugar ctrl foo)",
     "invalid path because of Args=0",
+);
+is(
+    request("/1/2/3/4/5")->content,
+    "default.5",
+    "/1/2/3/4/5",
+);
+is(
+    request("/1/2/3/4/5/6")->content,
+    "custom 'nr6' name",
+    "/1/2/3/4/5/6",
 );
 is(
     request("/sugar/context")->content,

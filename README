@@ -2,7 +2,7 @@ NAME
     CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 VERSION
-    0.08
+    0.09
 
 DESCRIPTION
     This module is written to simplify the way controllers are written. I
@@ -121,6 +121,8 @@ EXPORTED FUNCTIONS
 
      8. chain ..., \%method_map;
 
+     9. chain ANY => \%extra_args => sub { };
+
     Same as:
 
      1. sub root : Chained('/') PathPart('') CaptureArgs(0) { }
@@ -134,6 +136,7 @@ EXPORTED FUNCTIONS
      7. sub $PathPart : Chained($Chained) CaptureArgs($Int) { }
 
      8. Special case: See below
+     9. Special case: See below
 
     @CaptureArgs is a list of names of the captured arguments, which can be
     retrieved using captured().
@@ -151,6 +154,13 @@ EXPORTED FUNCTIONS
         default => sub { ... },
         #...
      );
+
+    %extra_args can be used to override information. Example:
+
+        { name => 'foo' }
+
+    Specifying "name" will replace the default name for this action, with
+    "foo" (or something else).
 
   private
      private $name => sub {};

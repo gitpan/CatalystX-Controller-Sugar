@@ -6,7 +6,7 @@ CatalystX::Controller::Sugar - Sugar for Catalyst controller
 
 =head1 VERSION
 
-0.08
+0.09
 
 =head1 DESCRIPTION
 
@@ -130,7 +130,7 @@ Moose::Exporter->setup_import_methods(
     also => 'Moose',
 );
 
-our $VERSION = eval '0.08';
+our $VERSION = eval '0.09';
 our $ROOT = 'root'; # will be deprecated
 our $DEFAULT = 'default'; # will be deprecated
 our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
@@ -151,6 +151,8 @@ our($RES, $REQ, $SELF, $CONTEXT, %CAPTURED);
 
  8. chain ..., \%method_map;
 
+ 9. chain ANY => \%extra_args => sub { };
+
 Same as:
 
  1. sub root : Chained('/') PathPart('') CaptureArgs(0) { }
@@ -164,6 +166,7 @@ Same as:
  7. sub $PathPart : Chained($Chained) CaptureArgs($Int) { }
 
  8. Special case: See below
+ 9. Special case: See below
 
 C<@CaptureArgs> is a list of names of the captured arguments, which
 can be retrieved using L<captured()>.
@@ -182,70 +185,102 @@ for a certain HTTP method: (The HTTP method is in lowercase)
     #...
  );
 
+C<%extra_args> can be used to override information. Example:
+
+    { name => 'foo' }
+
+Specifying "name" will replace the default name for this action, with
+"foo" (or something else).
+
 =cut
 
 sub chain {
-    my $class = shift->name;
+    my $meta = shift;
     my $code = pop;
-    my($c, $name, $ns, $attrs, $path, $action);
+    my $extra_args = (@_ and ref $_[-1] eq 'HASH') ? pop : {};
+    my @chain_args = @_;
+    my $class = $meta->name;
+    my($name, $action);
 
-    $c     = Catalyst::Utils::class2appclass($class);
-    $ns    = $class->action_namespace($c) || q();
-    $attrs = _setup_chain_attrs($ns, @_);
+    my $c = Catalyst::Utils::class2appclass($class);
+    my $namespace = $class->action_namespace($c) || q();
+    my $attributes = _setup_chain_attributes($namespace, @chain_args);
 
-    $path  =  $attrs->{'Chained'}[0];
-    $path  =~ s,$ROOT$,,;
-    $path .=  $attrs->{'PathPart'}[0];
-
-    if($path ne "/$ns") {
-        $name = (split "/", $attrs->{'PathPart'}[0])[-1];
+    if(defined $extra_args->{'name'}) {
+        $name = $extra_args->{'name'};
     }
-    elsif($c->dispatcher->get_action($ROOT, $ns)) {
+    else {
+        my $path = _path_from_chain_attributes($attributes);
+        $name = $extra_args->{'name'} || _name_from_chain_attributes($attributes, $namespace, $path, $c);
+    }
+
+    $code = _create_chain_code($class, $code);
+    $action = $class->create_action(
+                  name => $name,
+                  code => $code,
+                  reverse => $namespace ? "$namespace/$name" : $name,
+                  namespace => $namespace,
+                  class => $class,
+                  attributes => $attributes,
+              );
+
+    $c->dispatcher->register($c, $action);
+}
+
+sub _path_from_chain_attributes {
+    my $attributes = shift;
+    my $path = $attributes->{'Chained'}[0];
+
+    $path =~ s,$ROOT$,,;
+    $path .= $attributes->{'PathPart'}[0];
+
+    return $path;
+}
+
+sub _name_from_chain_attributes {
+    my($attributes, $namespace, $path, $c) = @_;
+    my $name;
+
+    if($path ne "/$namespace") {
+        $name = (split "/", $attributes->{'PathPart'}[0])[-1];
+    }
+    elsif($c->dispatcher->get_action($ROOT, $namespace)) {
         $name = $DEFAULT;
     }
     else {
         $name = $ROOT;
     }
 
-    # add captures to name
-    if(@{ $attrs->{'capture_names'} }) {
+    if(@{ $attributes->{'capture_names'} }) { # add captures to name
         $name ||= q();
-        $name  .= ":" .int @{ $attrs->{'capture_names'} };
+        $name  .= ":" .int @{ $attributes->{'capture_names'} };
     }
-
-    # set default name
-    # is this correct?
-    elsif(!$name) {
+    elsif($attributes->{'Args'} and $attributes->{'Args'}[0]) { # add captures to name
+        $name ||= $DEFAULT;
+        $name .= "." .$attributes->{'Args'}[0];
+    }
+    elsif(!$name) { # set default name -- is this correct?
         $name = $DEFAULT;
     }
 
-    $action = $class->create_action(
-                  name => $name,
-                  code => _create_chain_code($class, $code),
-                  reverse => $ns ? "$ns/$name" : $name,
-                  namespace => $ns,
-                  class => $class,
-                  attributes => $attrs,
-              );
-
-    $c->dispatcher->register($c, $action);
+    return $name;
 }
 
-sub _setup_chain_attrs {
-    my $ns = shift;
-    my $attrs = {};
+sub _setup_chain_attributes {
+    my $namespace = shift;
+    my $attributes = {};
 
     if(@_) { # chain ... => sub {};
         if(ref $_[-1] eq 'ARRAY') {
-            $attrs->{'CaptureArgs'} = [int @{ $_[-1] }];
-            $attrs->{'capture_names'} = pop @_;
+            $attributes->{'CaptureArgs'} = [int @{ $_[-1] }];
+            $attributes->{'capture_names'} = pop @_;
         }
         elsif(defined $_[-1] and $_[-1] =~ /^(\d+)$/) {
-            $attrs->{'Args'} = [pop @_];
+            $attributes->{'Args'} = [pop @_];
         }
 
         if(defined $_[-1]) {
-            $attrs->{'PathPart'} = [pop @_];
+            $attributes->{'PathPart'} = [pop @_];
         }
         else {
             my $args = join ", ", @_;
@@ -254,30 +289,30 @@ sub _setup_chain_attrs {
 
         if(defined $_[-1]) {
             my $with = pop @_;
-            $attrs->{'Chained'} = [ $with =~ m,^/, ? $with
-                                  : $ns            ? "/$ns/$with"
+            $attributes->{'Chained'} = [ $with =~ m,^/, ? $with
+                                  : $namespace     ? "/$namespace/$with"
                                   :                  "/$with"
                                   ];
         }
         else {
-            $attrs->{'Chained'} = [$ns ? "/$ns/$ROOT" : "/$ROOT"];
+            $attributes->{'Chained'} = [$namespace ? "/$namespace/$ROOT" : "/$ROOT"];
         }
     }
     else { # chain sub {};
-        my($parent, $this) = $ns =~ m[ ^ (.*)/(\w+) $ ]x;
-        my $chained = $parent ? "/$parent/$ROOT"
-                    : $ns     ? "/$ROOT"
-                    :           "/";
+        my($parent, $this) = $namespace =~ m[ ^ (.*)/(\w+) $ ]x;
+        my $chained = $parent    ? "/$parent/$ROOT"
+                    : $namespace ? "/$ROOT"
+                    :              "/";
 
-        $attrs->{'Chained'}     = [$chained];
-        $attrs->{'PathPart'}    = [$this || $ns];
-        $attrs->{'CaptureArgs'} = [0];
+        $attributes->{'Chained'}     = [$chained];
+        $attributes->{'PathPart'}    = [$this || $namespace];
+        $attributes->{'CaptureArgs'} = [0];
     }
 
-    $attrs->{'Args'} ||= [] unless($attrs->{'CaptureArgs'});
-    $attrs->{'capture_names'} ||= [];
+    $attributes->{'Args'} ||= [] unless($attributes->{'CaptureArgs'});
+    $attributes->{'capture_names'} ||= [];
 
-    return $attrs;
+    return $attributes;
 }
 
 sub _create_chain_code {
@@ -339,17 +374,17 @@ Same as:
 sub private {
     my($meta, $name, $code) = @_;
     my $class = $meta->name;
-    my($c, $ns);
+    my($c, $namespace);
  
-    $c  = Catalyst::Utils::class2appclass($class);
-    $ns = $class->action_namespace($c);
+    $c = Catalyst::Utils::class2appclass($class);
+    $namespace = $class->action_namespace($c);
 
     $c->dispatcher->register($c,
         $class->create_action(
             name => $name,
             code => _create_private_code($class, $code),
-            reverse => $ns ? "$ns/$name" : $name,
-            namespace => $ns,
+            reverse => $namespace ? "$namespace/$name" : $name,
+            namespace => $namespace,
             class => $class,
             attributes => { Private => [] },
         )
@@ -538,6 +573,7 @@ sub report {
 
 sub _flatten {
     local $Data::Dumper::Indent = 0;
+    local $Data::Dumper::Maxdepth = $Data::Dumper::Maxdepth || 4;
     local $Data::Dumper::Terse = 0;
 
     map {
