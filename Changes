@@ -1,5 +1,8 @@
 Revision history for CatalystX-Controller-Sugar
 
+0.0901   Wed Apr 20 11:41:58 CEST 2011
+       - Fix root chains can also be chained to namespaces containing "-"
+
 0.09     Thu Feb 10 20:16:19 CET 2011
        - Fix the code below will result in different action->name
          chain foo => sub {}; => "foo"
